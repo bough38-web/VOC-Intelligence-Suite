@@ -38,12 +38,13 @@ with st.sidebar:
     sidebar_file = st.file_uploader("VOC 데이터 업로드 (.csv)", type=["csv"], key="sidebar_up")
     if sidebar_file:
         raw_df = load_voc_data(sidebar_file)
-        df = preprocess_voc_data(raw_df)
+        if raw_df is not None:
+            df = preprocess_voc_data(raw_df)
 
 # Logic for Empty State
 if df is None:
     st.markdown("""
-        <div style='text-align: center; padding: 80px 0;'>
+        <div style='text-align: center; padding: 80px 0 20px 0;'>
             <h1 style='font-size: 4rem; font-weight: 900; margin-bottom: 10px;'>VOC Intelligence</h1>
             <p style='font-size: 1.4rem; color: #94a3b8; margin-bottom: 40px;'>시계열 분석 및 해지 방어 최적화 솔루션</p>
         </div>
@@ -51,11 +52,31 @@ if df is None:
     
     c1, c2, c3 = st.columns([1,2,1])
     with c2:
-        glass_container_start()
         main_file = st.file_uploader("분석할 VOC 파일을 드래그하여 놓으세요", type=["csv"], key="main_up")
         if main_file:
             raw_df = load_voc_data(main_file)
-            df = preprocess_voc_data(raw_df)
+            if raw_df is not None:
+                df = preprocess_voc_data(raw_df)
+                if df is not None:
+                    st.rerun() # 즉시 대시보드 전환
+    
+    # Features Section
+    st.markdown("<div style='margin-top: 50px;'></div>", unsafe_allow_html=True)
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        glass_container_start()
+        st.markdown("### 📈 시계열 트렌드")
+        st.write("월별/일별 VOC 발생 추이를 한눈에 파악하고 미래 수요를 예측합니다.")
+        glass_container_end()
+    with col2:
+        glass_container_start()
+        st.markdown("### 🏢 조직 성과 분석")
+        st.write("지사별, 담당자별 처리 현황을 분석하여 운영 효율성을 극대화합니다.")
+        glass_container_end()
+    with col3:
+        glass_container_start()
+        st.markdown("### ⚠️ 리스크 관리")
+        st.write("해지 사유를 자동 분류하고 고위험 고객을 식별하여 선제적으로 대응합니다.")
         glass_container_end()
     
     if df is None:
@@ -104,29 +125,38 @@ with tabs[0]:
 
 with tabs[1]:
     col1, col2 = st.columns([1, 1])
-    haeji_df = df[df['VOC유형대'] == '해지']
+    haeji_df = df[df['VOC유형대'] == '해지'] if 'VOC유형대' in df.columns else pd.DataFrame()
     
     with col1:
         styled_header("핵심 해지 사유", "⚠️")
-        reason_data = haeji_df['해지사유_상세'].value_counts().reset_index()
-        reason_data.columns = ['사유', '건수']
-        fig_reason = px.bar(reason_data, x='건수', y='사유', orientation='h',
-                           color='건수', color_continuous_scale='Reds',
-                           template="plotly_dark")
-        fig_reason.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
-        st.plotly_chart(fig_reason, use_container_width=True)
+        if not haeji_df.empty:
+            reason_data = haeji_df['해지사유_상세'].value_counts().reset_index()
+            reason_data.columns = ['사유', '건수']
+            fig_reason = px.bar(reason_data, x='건수', y='사유', orientation='h',
+                               color='건수', color_continuous_scale='Reds',
+                               template="plotly_dark")
+            fig_reason.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
+            st.plotly_chart(fig_reason, use_container_width=True)
+        else:
+            st.info("해지 관련 데이터가 없습니다.")
         
     with col2:
         styled_header("서비스별 해지 분포", "📦")
-        svc_data = haeji_df['서비스그룹'].value_counts().reset_index()
-        svc_data.columns = ['서비스', '건수']
-        fig_svc = px.pie(svc_data.head(8), values='건수', names='서비스', 
-                        hole=0.5, template="plotly_dark")
-        fig_svc.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
-        st.plotly_chart(fig_svc, use_container_width=True)
+        if not haeji_df.empty:
+            svc_data = haeji_df['서비스그룹'].value_counts().reset_index()
+            svc_data.columns = ['서비스', '건수']
+            fig_svc = px.pie(svc_data.head(8), values='건수', names='서비스', 
+                            hole=0.5, template="plotly_dark")
+            fig_svc.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
+            st.plotly_chart(fig_svc, use_container_width=True)
+        else:
+            st.info("해지 관련 데이터가 없습니다.")
 
     styled_header("고액 해지 위험 리스트 (Top 20)", "🚩")
-    st.dataframe(haeji_df.sort_values('월정료_숫자', ascending=False).head(20)[['접수일시', '상호', '서비스그룹', '월정료(VAT미포함)', '해지사유_상세', '처리자']], use_container_width=True)
+    if not haeji_df.empty:
+        st.dataframe(haeji_df.sort_values('월정료_숫자', ascending=False).head(20)[['접수일시', '상호', '서비스그룹', '월정료(VAT미포함)', '해지사유_상세', '처리자']], use_container_width=True)
+    else:
+        st.info("표시할 위험 리스트가 없습니다.")
 
 with tabs[2]:
     c1, c2 = st.columns(2)

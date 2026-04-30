@@ -2,6 +2,10 @@ import pandas as pd
 import numpy as np
 import io
 import chardet
+import streamlit as st
+
+# 분석에 필요한 필수 컬럼 정의
+REQUIRED_COLUMNS = ['접수일시', 'VOC유형대', '관리지사', '계약번호', '상호']
 
 def load_voc_data(uploaded_file):
     """Loads and returns a pandas DataFrame from an uploaded CSV file."""
@@ -12,6 +16,14 @@ def load_voc_data(uploaded_file):
             encoding = result['encoding'] if result['encoding'] else 'utf-8'
             
             df = pd.read_csv(io.BytesIO(bytes_data), encoding=encoding)
+            
+            # 필수 컬럼 검증
+            missing_cols = [col for col in REQUIRED_COLUMNS if col not in df.columns]
+            if missing_cols:
+                st.error(f"⚠️ 필수 컬럼이 누락되었습니다: {', '.join(missing_cols)}")
+                st.info("파일의 헤더(첫 줄) 이름을 확인해 주세요.")
+                return None
+                
             return df
         except Exception as e:
             raise Exception(f"파일을 읽는 중 오류가 발생했습니다: {e}")
